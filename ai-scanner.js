@@ -1,4 +1,4 @@
-// AI Scanner Module - Image OCR and Data Extraction
+// AI Scanner Module - Image OCR and Data Extraction with Auto-Fill & Export
 // Uses Tesseract.js for offline OCR (no API required)
 
 const AiScanner = {
@@ -106,7 +106,7 @@ const AiScanner = {
       }
 
       const { createWorker } = window.Tesseract;
-      const worker = await createWorker('hin'); // Hindi + English support
+      const worker = await createWorker('eng'); // English + auto-detect
       
       const { data: { text } } = await worker.recognize(imgSrc);
       await worker.terminate();
@@ -115,7 +115,7 @@ const AiScanner = {
       this.displayResults(extractedData);
     } catch (error) {
       console.error('OCR Error:', error);
-      resultsContainer.innerHTML = `<div class="ai-loading" style="color: var(--danger);">❌ Error: ${error.message}<br><small>कृपया एक स्पष्ट तस्वीर के साथ फिर से प्रयास करें</small></div>`;
+      resultsContainer.innerHTML = `<div class="ai-loading" style="color: var(--danger);">❌ Error: ${error.message}<br><small>कृपया एक स्पष्ट तस्वीर के साथ पुन: प्रयास करें</small></div>`;
     }
   },
 
@@ -127,7 +127,8 @@ const AiScanner = {
       addresses: [],
       amounts: [],
       dates: [],
-      other: []
+      other: [],
+      rawText: text
     };
 
     const lines = text.split('\n').filter(line => line.trim());
@@ -140,7 +141,9 @@ const AiScanner = {
       if (phoneMatch) {
         phoneMatch.forEach(p => {
           const cleaned = p.replace(/[\s\-]/g, '');
-          if (!data.phones.includes(cleaned)) data.phones.push(cleaned);
+          if (cleaned.length === 10 && !data.phones.includes(cleaned)) {
+            data.phones.push(cleaned);
+          }
         });
       }
 
@@ -169,13 +172,13 @@ const AiScanner = {
       }
 
       // Names (capitalized words, 2+ characters, excluding common words)
-      if (trimmed.length > 2 && /^[A-Z][a-zA-Z\s]+$/.test(trimmed) && !this.isCommonWord(trimmed)) {
+      if (trimmed.length > 2 && trimmed.length < 50 && /^[A-Z][a-zA-Z\s]+$/.test(trimmed) && !this.isCommonWord(trimmed)) {
         if (!data.names.includes(trimmed)) data.names.push(trimmed);
       }
 
-      // Anything else with at least 5 characters
-      if (trimmed.length > 5 && !data.other.includes(trimmed)) {
-        data.other.push(trimmed);
+      // Addresses and longer text
+      if (trimmed.length > 10 && trimmed.length < 100 && !data.addresses.includes(trimmed) && !data.other.includes(trimmed)) {
+        data.addresses.push(trimmed);
       }
     });
 
@@ -183,7 +186,7 @@ const AiScanner = {
   },
 
   isCommonWord(word) {
-    const common = ['The', 'And', 'For', 'With', 'From', 'Date', 'Time', 'Name', 'Phone', 'Address', 'Email', 'Amount', 'Total', 'Payment'];
+    const common = ['The', 'And', 'For', 'With', 'From', 'Date', 'Time', 'Name', 'Phone', 'Address', 'Email', 'Amount', 'Total', 'Payment', 'Mobile', 'Number', 'Contact', 'Person'];
     return common.some(w => w.toLowerCase() === word.toLowerCase());
   },
 
@@ -192,11 +195,18 @@ const AiScanner = {
     let html = '<div class="ai-results">';
     let hasData = false;
 
+    // Export Buttons
+    html += `<div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+      <button id="aiExportJson" style="background: var(--moss); color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer;">📥 Export JSON</button>
+      <button id="aiExportCsv" style="background: var(--clay); color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer;">📊 Export CSV</button>
+      <button id="aiAutoFillAll" style="background: var(--moss-dark); color: white; border: none; border-radius: 6px; padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer;">⚡ Auto-Fill All</button>
+    </div>`;
+
     if (data.phones.length > 0) {
       hasData = true;
       html += `<div class="ai-result-item">
         <strong>📱 Mobile Numbers (${data.phones.length})</strong>
-        ${data.phones.map(p => `<div style="margin:4px 0">${p} <button class="ai-quick-fill" data-type="phone" data-value="${p}" style="float:right; background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
+        ${data.phones.slice(0, 10).map(p => `<div style="margin:4px 0; display: flex; justify-content: space-between; align-items: center;"><span>${p}</span><button class="ai-quick-fill" data-type="phone" data-value="${p}" style="background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
       </div>`;
     }
 
@@ -204,7 +214,7 @@ const AiScanner = {
       hasData = true;
       html += `<div class="ai-result-item">
         <strong>👤 Names (${data.names.length})</strong>
-        ${data.names.slice(0, 5).map(n => `<div style="margin:4px 0">${n} <button class="ai-quick-fill" data-type="name" data-value="${n}" style="float:right; background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
+        ${data.names.slice(0, 5).map(n => `<div style="margin:4px 0; display: flex; justify-content: space-between; align-items: center;"><span>${n}</span><button class="ai-quick-fill" data-type="name" data-value="${n}" style="background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
       </div>`;
     }
 
@@ -212,7 +222,7 @@ const AiScanner = {
       hasData = true;
       html += `<div class="ai-result-item">
         <strong>💰 Amounts (${data.amounts.length})</strong>
-        ${data.amounts.map(a => `<div style="margin:4px 0">${a} <button class="ai-quick-fill" data-type="amount" data-value="${a}" style="float:right; background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
+        ${data.amounts.map(a => `<div style="margin:4px 0; display: flex; justify-content: space-between; align-items: center;"><span>${a}</span><button class="ai-quick-fill" data-type="amount" data-value="${a}" style="background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
       </div>`;
     }
 
@@ -228,7 +238,15 @@ const AiScanner = {
       hasData = true;
       html += `<div class="ai-result-item">
         <strong>📅 Dates (${data.dates.length})</strong>
-        ${data.dates.map(d => `<div style="margin:4px 0">${d} <button class="ai-quick-fill" data-type="date" data-value="${d}" style="float:right; background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 6px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
+        ${data.dates.slice(0, 5).map(d => `<div style="margin:4px 0; display: flex; justify-content: space-between; align-items: center;"><span>${d}</span><button class="ai-quick-fill" data-type="date" data-value="${d}" style="background:var(--moss); color:white; border:none; border-radius:4px; padding:2px 8px; font-size:11px; cursor:pointer;">+ Add</button></div>`).join('')}
+      </div>`;
+    }
+
+    if (data.addresses.length > 0) {
+      hasData = true;
+      html += `<div class="ai-result-item">
+        <strong>📍 Addresses (${data.addresses.length})</strong>
+        ${data.addresses.slice(0, 3).map(a => `<div style="margin:4px 0; font-size: 12px; color: var(--muted);">${a}</div>`).join('')}
       </div>`;
     }
 
@@ -243,6 +261,11 @@ const AiScanner = {
     document.querySelectorAll('.ai-quick-fill').forEach(btn => {
       btn.addEventListener('click', (e) => this.quickFillField(e));
     });
+
+    // Export buttons
+    document.getElementById('aiExportJson')?.addEventListener('click', () => this.exportData('json', data));
+    document.getElementById('aiExportCsv')?.addEventListener('click', () => this.exportData('csv', data));
+    document.getElementById('aiAutoFillAll')?.addEventListener('click', () => this.autoFillAllFields(data));
 
     this.currentScannedData = data;
   },
@@ -288,12 +311,89 @@ const AiScanner = {
     }
   },
 
+  autoFillAllFields(data) {
+    let filledCount = 0;
+
+    // Auto-fill Hot List first
+    if (data.names.length > 0 && data.phones.length > 0) {
+      document.getElementById('hl-name').value = data.names[0];
+      document.getElementById('hl-phone').value = data.phones[0].replace(/[\s\-]/g, '');
+      filledCount += 2;
+    }
+
+    // Auto-fill Friends if multiple names/phones
+    if (data.names.length > 1 && data.phones.length > 1) {
+      document.getElementById('fr-name').value = data.names[1];
+      document.getElementById('fr-phone').value = data.phones[1].replace(/[\s\-]/g, '');
+      filledCount += 2;
+    }
+
+    // Auto-fill Site Visits with amounts and visitor info
+    if (data.phones.length > 0 && data.names.length > 0) {
+      document.getElementById('sv-name1').value = data.names[0];
+      document.getElementById('sv-phone1').value = data.phones[0].replace(/[\s\-]/g, '');
+      
+      if (data.amounts.length > 0) {
+        document.getElementById('sv-token').value = data.amounts[0];
+      }
+      filledCount += 3;
+    }
+
+    if (filledCount > 0) {
+      this.showNotification(`⚡ Auto-filled ${filledCount} fields across sections!`);
+    } else {
+      this.showNotification(`⚠️ Not enough data to auto-fill`);
+    }
+  },
+
+  exportData(format, data) {
+    if (format === 'json') {
+      const jsonData = {
+        exportDate: new Date().toISOString(),
+        phones: data.phones,
+        names: data.names,
+        emails: data.emails,
+        amounts: data.amounts,
+        dates: data.dates,
+        addresses: data.addresses,
+        rawText: data.rawText
+      };
+
+      const dataStr = JSON.stringify(jsonData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ai-scan-${Date.now()}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      this.showNotification('📥 JSON file downloaded!');
+    } else if (format === 'csv') {
+      let csv = 'Type,Value,Count\n';
+      csv += `Phones,${data.phones.join('; ')},${data.phones.length}\n`;
+      csv += `Names,${data.names.join('; ')},${data.names.length}\n`;
+      csv += `Emails,${data.emails.join('; ')},${data.emails.length}\n`;
+      csv += `Amounts,${data.amounts.join('; ')},${data.amounts.length}\n`;
+      csv += `Dates,${data.dates.join('; ')},${data.dates.length}\n`;
+      csv += `Addresses,${data.addresses.join('; ')},${data.addresses.length}\n`;
+
+      const csvBlob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(csvBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ai-scan-${Date.now()}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+      this.showNotification('📊 CSV file downloaded!');
+    }
+  },
+
   showNotification(message) {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed; top: 20px; right: 20px; background: var(--moss); color: white;
       padding: 12px 16px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      z-index: 2000; animation: slideIn 0.3s ease; font-size: 13px;
+      z-index: 2000; animation: slideIn 0.3s ease; font-size: 13px; max-width: 300px;
     `;
     notification.textContent = message;
     document.body.appendChild(notification);
