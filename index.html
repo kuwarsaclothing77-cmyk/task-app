@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Keep">
+<title>Keep — your personal manager</title>
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root{
+  --ink:#1f2430; --paper:#ffffff; --paper-2:#f5f6f8; --line:#e3e5ea;
+  --moss:#2f6feb; --moss-dark:#1f4fc4; --clay:#e0862f; --muted:#767c8a;
+  --danger:#d8412f; --card:#ffffff;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+*{box-sizing:border-box;}
+body{
+  height:100%; margin:0; background:var(--paper); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  display:flex; flex-direction:column;
+}
+header{
+  padding:16px 16px 10px; border-bottom:1px solid var(--line);
+  display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+}
+h1{
+  font-family:Georgia,"Iowan Old Style","Times New Roman",serif;
+  font-weight:600; font-size:21px; margin:0; letter-spacing:0.2px;
+}
+.sub{font-size:12px; color:var(--muted);}
+#installBtn{background:var(--moss); color:var(--paper); border:none; border-radius:20px; padding:5px 12px; font-size:11.5px; font-weight:600; cursor:pointer;}
+
+.section-nav{
+  display:flex; gap:4px; padding:10px 12px; overflow-x:auto; border-bottom:1px solid var(--line); background:var(--paper-2);
+}
+.section-btn{
+  border:none; background:transparent; color:var(--muted); font-size:13.5px;
+  padding:8px 12px; border-radius:20px; cursor:pointer; white-space:nowrap; font-weight:600;
+}
+.section-btn.active{background:var(--moss); color:var(--paper);}
+
+.panel{display:none; flex:1; flex-direction:column; overflow:hidden;}
+.panel.active{display:flex;}
+
+.tabs{
+  display:flex; gap:4px; padding:10px 16px; overflow-x:auto; border-bottom:1px solid var(--line);
+}
+.tab{
+  border:none; background:transparent; color:var(--muted); font-size:14px;
+  padding:7px 12px; border-radius:20px; cursor:pointer; white-space:nowrap;
+}
+.tab.active{background:var(--moss); color:var(--paper);}
+main{flex:1; overflow-y:auto; padding:14px 16px 100px;}
+.empty{
+  text-align:center; color:var(--muted); margin-top:60px; font-size:14.5px; line-height:1.6;
+}
+.task{
+  background:var(--card); border:1px solid var(--line); border-radius:10px;
+  padding:12px 14px; margin-bottom:9px; display:flex; gap:11px; align-items:flex-start;
+}
+.task.done{opacity:0.5;}
+.check{
+  width:21px; height:21px; border-radius:50%; border:2px solid var(--moss);
+  flex-shrink:0; margin-top:2px; cursor:pointer; background:transparent;
+  display:flex; align-items:center; justify-content:center; padding:0;
+}
+.task.done .check{background:var(--moss);}
+.check svg{width:12px; height:12px; stroke:var(--paper); fill:none; stroke-width:3; display:none;}
+.task.done .check svg{display:block;}
+.task-body{flex:1; min-width:0;}
+.task-title{font-size:15px; line-height:1.35; word-break:break-word;}
+.task.done .task-title{text-decoration:line-through;}
+.meta{display:flex; gap:8px; margin-top:5px; flex-wrap:wrap; align-items:center;}
+.pill{
+  font-size:11.5px; padding:2px 8px; border-radius:20px; border:1px solid var(--line); color:var(--muted);
+}
+.pill.overdue{color:var(--danger); border-color:var(--danger);}
+.pill.today{color:var(--clay); border-color:var(--clay);}
+.pill.p-high{color:var(--danger); border-color:var(--danger);}
+.pill.interested{color:var(--moss-dark); border-color:var(--moss);}
+.pill.not-interested{color:var(--danger); border-color:var(--danger);}
+.del{
+  background:none; border:none; color:var(--muted); font-size:19px; cursor:pointer;
+  padding:2px 4px; line-height:1; flex-shrink:0;
+}
+.card-actions{display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0;}
+.edit-btn{
+  background:none; border:none; color:var(--moss); font-size:15px; cursor:pointer;
+  padding:2px 4px; line-height:1;
+}
+.cancel-edit{
+  background:none; border:none; color:var(--muted); font-size:13px; cursor:pointer;
+  padding:0 6px; text-decoration:underline; display:none; flex-shrink:0;
+}
+.cancel-edit.show{display:inline-block;}
+.editing-banner{
+  display:none; font-size:12px; color:var(--moss-dark); font-weight:600; padding:0 0 6px;
+}
+.editing-banner.show{display:block;}
+.contact-line{
+  margin-top:6px; font-size:13px; color:var(--ink); display:flex; flex-wrap:wrap; gap:4px 10px;
+}
+.contact-line a{color:var(--moss-dark); text-decoration:none; font-weight:600;}
+.contact-line a:hover{text-decoration:underline;}
+.reason{margin-top:3px; font-size:12.5px; color:var(--muted); word-break:break-word;}
+.card-title{font-size:15px; font-weight:600;}
+.visitor-line{font-size:13px; margin-top:3px; display:flex; flex-wrap:wrap; gap:4px 10px;}
+.visitor-line a{color:var(--moss-dark); text-decoration:none; font-weight:600;}
+.site-name{font-family:Georgia,serif; font-size:15.5px; font-weight:700; color:var(--moss-dark);}
+
+.composer{
+  position:fixed; left:0; right:0; bottom:0; background:var(--paper);
+  border-top:1px solid var(--line); padding:10px 14px calc(12px + env(safe-area-inset-bottom,0px));
+  display:none;
+}
+.composer.active{display:block;}
+.row1{display:flex; gap:8px;}
+input[type=text], input[type=tel], input[type=number]{
+  flex:1; border:1px solid var(--line); background:var(--card); color:var(--ink);
+  border-radius:9px; padding:11px 12px; font-size:15px; min-width:0;
+}
+input[type=text]:focus, select:focus, input[type=datetime-local]:focus, input[type=tel]:focus, input[type=number]:focus{outline:2px solid var(--moss); outline-offset:1px;}
+.add{
+  background:var(--moss); color:var(--paper); border:none; border-radius:9px;
+  padding:0 16px; font-size:15px; font-weight:600; cursor:pointer;
+}
+.row2{display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;}
+.row2 input, .row2 select{flex:1; min-width:120px;}
+select, input[type=datetime-local]{
+  border:1px solid var(--line); background:var(--card); color:var(--ink);
+  border-radius:8px; padding:8px 9px; font-size:13px;
+}
+.note{
+  font-size:11.5px; color:var(--muted); text-align:center; padding:8px 20px 0;
+}
+.field-label{font-size:11px; color:var(--muted); margin:8px 0 2px; font-weight:600;}
+.visitor-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Keep</h1>
+    <div class="sub" id="dateLine"></div>
+  </div>
+  <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+    <div class="sub" id="countLine"></div>
+    <button id="installBtn">Install app</button>
+  </div>
+</header>
+
+<div class="section-nav" id="sectionNav">
+  <button class="section-btn active" data-s="tasks">Tasks</button>
+  <button class="section-btn" data-s="hotlist">Hot List</button>
+  <button class="section-btn" data-s="friends">Friend Circle</button>
+  <button class="section-btn" data-s="sitevisits">Site Visits</button>
+</div>
+
+<!-- TASKS PANEL -->
+<div class="panel active" id="panel-tasks">
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-f="today">Today</button>
+    <button class="tab" data-f="upcoming">Upcoming</button>
+    <button class="tab" data-f="all">All</button>
+    <button class="tab" data-f="done">Done</button>
+  </div>
+  <main id="list"></main>
+  <div class="composer active" id="composer-tasks">
+    <div class="editing-banner" id="task-editing-banner">Editing task — Save to update, or Cancel</div>
+    <div class="row1">
+      <input type="text" id="titleInput" placeholder="Add a task…" maxlength="200">
+      <button class="cancel-edit" id="task-cancel-edit">Cancel</button>
+      <button class="add" id="addBtn">Add</button>
+    </div>
+    <div class="row2">
+      <input type="datetime-local" id="whenInput">
+      <select id="prioInput">
+        <option value="normal">Normal</option>
+        <option value="high">High priority</option>
+        <option value="low">Low priority</option>
+      </select>
+      <button type="button" class="add" id="moreBtn" style="background:transparent;color:var(--moss);border:1px solid var(--line);font-weight:600;">+ Details</button>
+    </div>
+    <div class="row2" id="extraRow" style="display:none;">
+      <input type="text" id="nameInput" placeholder="Contact name">
+      <input type="tel" id="phoneInput" placeholder="Phone number">
+    </div>
+    <div class="row2" id="extraRow2" style="display:none;">
+      <input type="text" id="reasonInput" placeholder="Reason / note">
+      <input type="text" id="siteInput" placeholder="Website / link">
+    </div>
+    <div class="note" id="notifyNote"></div>
+  </div>
+</div>
+
+<!-- HOT LIST PANEL (relatives) -->
+<div class="panel" id="panel-hotlist">
+  <main id="list-hotlist"></main>
+  <div class="composer active" id="composer-hotlist">
+    <div class="editing-banner" id="hl-editing-banner">Editing contact — Save to update, or Cancel</div>
+    <div class="row1">
+      <input type="text" id="hl-name" placeholder="Relative's name" maxlength="100">
+      <button class="cancel-edit" id="hl-cancel-edit">Cancel</button>
+      <button class="add" id="hl-add">Add</button>
+    </div>
+    <div class="row2">
+      <input type="tel" id="hl-phone" placeholder="Phone number">
+    </div>
+    <div class="row2">
+      <input type="text" id="hl-reason" placeholder="Reason (interested / not interested / other)">
+    </div>
+  </div>
+</div>
+
+<!-- FRIEND CIRCLE PANEL -->
+<div class="panel" id="panel-friends">
+  <main id="list-friends"></main>
+  <div class="composer active" id="composer-friends">
+    <div class="editing-banner" id="fr-editing-banner">Editing contact — Save to update, or Cancel</div>
+    <div class="row1">
+      <input type="text" id="fr-name" placeholder="Name (e.g. from Jain Pravachan)" maxlength="100">
+      <button class="cancel-edit" id="fr-cancel-edit">Cancel</button>
+      <button class="add" id="fr-add">Add</button>
+    </div>
+    <div class="row2">
+      <input type="tel" id="fr-phone" placeholder="Phone number">
+    </div>
+    <div class="row2">
+      <input type="text" id="fr-reason" placeholder="Reason (interested / not interested / other)">
+    </div>
+  </div>
+</div>
+
+<!-- SITE VISITS PANEL -->
+<div class="panel" id="panel-sitevisits">
+  <main id="list-sitevisits"></main>
+  <div class="composer active" id="composer-sitevisits">
+    <div class="editing-banner" id="sv-editing-banner">Editing visit — Save to update, or Cancel</div>
+    <div class="row1">
+      <input type="text" id="sv-site" placeholder="Site name (project developed)" maxlength="150">
+      <button class="cancel-edit" id="sv-cancel-edit">Cancel</button>
+      <button class="add" id="sv-add">Add</button>
+    </div>
+    <div class="field-label">Visitors (up to 4)</div>
+    <div class="visitor-grid">
+      <input type="text" id="sv-name1" placeholder="Visitor 1 name">
+      <input type="tel" id="sv-phone1" placeholder="Visitor 1 phone">
+      <input type="text" id="sv-name2" placeholder="Visitor 2 name">
+      <input type="tel" id="sv-phone2" placeholder="Visitor 2 phone">
+      <input type="text" id="sv-name3" placeholder="Visitor 3 name">
+      <input type="tel" id="sv-phone3" placeholder="Visitor 3 phone">
+      <input type="text" id="sv-name4" placeholder="Visitor 4 name">
+      <input type="tel" id="sv-phone4" placeholder="Visitor 4 phone">
+    </div>
+    <div class="row2">
+      <input type="text" id="sv-token" placeholder="Token no. / payment amount given">
+      <select id="sv-decision">
+        <option value="undecided">Decision pending</option>
+        <option value="interested">Interested to buy</option>
+        <option value="not-interested">Not interested</option>
+      </select>
+    </div>
+    <div class="row2">
+      <input type="text" id="sv-reason" placeholder="Reason / notes">
+    </div>
+  </div>
+</div>
+
+<script>
+// Real, same-origin service worker registration -- this is what makes
+// Chrome's native "Install app" prompt actually fire, once this is hosted
+// on your own domain (GitHub Pages, Netlify, Vercel, etc.) over HTTPS.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+<script>
+const STORE_KEY = 'keep_tasks_v1';
+const HL_KEY = 'keep_hotlist_v1';
+const FR_KEY = 'keep_friends_v1';
+const SV_KEY = 'keep_sitevisits_v1';
+
+function loadArr(key){ try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e){ return []; } }
+function saveArr(key, arr){ try { localStorage.setItem(key, JSON.stringify(arr)); } catch(e){} }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function escapeHtml(s){ const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+let tasks = loadArr(STORE_KEY);
+let hotlist = loadArr(HL_KEY);
+let friends = loadArr(FR_KEY);
+let sitevisits = loadArr(SV_KEY);
+
+let filter = 'today';
+const listEl = document.getElementById('list');
+const countLine = document.getElementById('countLine');
+const dateLine = document.getElementById('dateLine');
+const notifyNote = document.getElementById('notifyNote');
+dateLine.textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
+
+// ---------- Section switching ----------
+document.getElementById('sectionNav').addEventListener('click', (e) => {
+  const btn = e.target.closest('.section-btn');
+  if (!btn) return;
+  document.querySelectorAll('.section-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + btn.dataset.s).classList.add('active');
+  updateCount();
+});
+
+function updateCount(){
+  const active = document.querySelector('.section-btn.active').dataset.s;
+  const counts = { tasks: tasks.filter(t=>!t.done).length, hotlist: hotlist.length, friends: friends.length, sitevisits: sitevisits.length };
+  const labels = { tasks:'tasks', hotlist:'contacts', friends:'contacts', sitevisits:'visits' };
+  countLine.textContent = counts[active] + ' ' + labels[active];
+}
+
+// ---------- TASKS ----------
+function isSameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+function pillsFor(t){
+  let pills = '';
+  if (t.when) {
+    const d = new Date(t.when); const now = new Date();
+    const overdue = d < now && !t.done; const today = isSameDay(d, now);
+    const label = d.toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    pills += `<span class="pill ${overdue ? 'overdue' : (today ? 'today' : '')}">${overdue ? 'Overdue · ' : ''}${label}</span>`;
+  }
+  if (t.priority === 'high') pills += `<span class="pill p-high">High</span>`;
+  if (t.priority === 'low') pills += `<span class="pill">Low</span>`;
+  return pills;
+}
+function contactLineFor(t){
+  let bits = '';
+  if (t.contactName) bits += `<span>${escapeHtml(t.contactName)}</span>`;
+  if (t.phone) bits += `<a href="tel:${encodeURIComponent(t.phone)}">${escapeHtml(t.phone)}</a>`;
+  if (t.site) {
+    const href = /^https?:\/\//i.test(t.site) ? t.site : 'https://' + t.site;
+    bits += `<a href="${href}" target="_blank" rel="noopener">${escapeHtml(t.site)}</a>`;
+  }
+  let out = bits ? `<div class="contact-line">${bits}</div>` : '';
+  if (t.reason) out += `<div class="reason">${escapeHtml(t.reason)}</div>`;
+  return out;
+}
+function render(){
+  const now = new Date();
+  let filtered = tasks.filter(t => {
+    if (filter === 'done') return t.done;
+    if (t.done) return false;
+    if (filter === 'all') return true;
+    if (!t.when) return filter === 'today';
+    const d = new Date(t.when);
+    if (filter === 'today') return d < new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
+    if (filter === 'upcoming') return d >= new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
+    return true;
+  });
+  filtered.sort((a,b) => {
+    if (!!a.when !== !!b.when) return a.when ? -1 : 1;
+    if (a.when && b.when) return new Date(a.when) - new Date(b.when);
+    return b.created - a.created;
+  });
+  updateCount();
+  if (filtered.length === 0) {
+    const msgs = { today:'Nothing due today. Add something below.', upcoming:'Nothing scheduled ahead yet.', all:'No tasks yet — add your first one.', done:'Nothing completed yet.' };
+    listEl.innerHTML = `<div class="empty">${msgs[filter]}</div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map(t => `
+    <div class="task ${t.done ? 'done' : ''}" data-id="${t.id}">
+      <button class="check" data-action="toggle" aria-label="Mark complete">
+        <svg viewBox="0 0 24 24"><polyline points="4 12 9 18 20 6"></polyline></svg>
+      </button>
+      <div class="task-body">
+        <div class="task-title">${escapeHtml(t.title)}</div>
+        ${contactLineFor(t)}
+        <div class="meta">${pillsFor(t)}</div>
+      </div>
+      <div class="card-actions">
+        <button class="edit-btn" data-action="edit" aria-label="Edit">✎</button>
+        <button class="del" data-action="delete" aria-label="Delete">×</button>
+      </div>
+    </div>
+  `).join('');
+}
+let editingTaskId = null;
+listEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const taskEl = e.target.closest('.task'); const id = taskEl.dataset.id;
+  const t = tasks.find(x => x.id === id); if (!t) return;
+  if (btn.dataset.action === 'toggle') { t.done = !t.done; saveArr(STORE_KEY, tasks); render(); }
+  if (btn.dataset.action === 'delete') {
+    tasks = tasks.filter(x => x.id !== id); saveArr(STORE_KEY, tasks);
+    if (editingTaskId === id) cancelTaskEdit();
+    render();
+  }
+  if (btn.dataset.action === 'edit') {
+    editingTaskId = id;
+    document.getElementById('titleInput').value = t.title || '';
+    document.getElementById('whenInput').value = t.when ? new Date(t.when - new Date(t.when).getTimezoneOffset()*60000).toISOString().slice(0,16) : '';
+    document.getElementById('prioInput').value = t.priority || 'normal';
+    document.getElementById('nameInput').value = t.contactName || '';
+    document.getElementById('phoneInput').value = t.phone || '';
+    document.getElementById('reasonInput').value = t.reason || '';
+    document.getElementById('siteInput').value = t.site || '';
+    if (t.contactName || t.phone || t.reason || t.site) {
+      document.getElementById('extraRow').style.display = 'flex';
+      document.getElementById('extraRow2').style.display = 'flex';
+      document.getElementById('moreBtn').textContent = '− Details';
+    }
+    document.getElementById('addBtn').textContent = 'Save changes';
+    document.getElementById('task-editing-banner').classList.add('show');
+    document.getElementById('task-cancel-edit').classList.add('show');
+    document.getElementById('titleInput').scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('titleInput').focus();
+  }
+});
+function cancelTaskEdit(){
+  editingTaskId = null;
+  document.getElementById('titleInput').value=''; document.getElementById('whenInput').value='';
+  document.getElementById('prioInput').value='normal'; document.getElementById('nameInput').value='';
+  document.getElementById('phoneInput').value=''; document.getElementById('reasonInput').value='';
+  document.getElementById('siteInput').value='';
+  document.getElementById('addBtn').textContent = 'Add';
+  document.getElementById('task-editing-banner').classList.remove('show');
+  document.getElementById('task-cancel-edit').classList.remove('show');
+}
+document.getElementById('task-cancel-edit').addEventListener('click', cancelTaskEdit);
+document.getElementById('tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab'); if (!btn) return;
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); filter = btn.dataset.f; render();
+});
+document.getElementById('moreBtn').addEventListener('click', () => {
+  const r1 = document.getElementById('extraRow'); const r2 = document.getElementById('extraRow2');
+  const open = r1.style.display === 'none';
+  r1.style.display = open ? 'flex' : 'none'; r2.style.display = open ? 'flex' : 'none';
+  document.getElementById('moreBtn').textContent = open ? '− Details' : '+ Details';
+});
+document.getElementById('addBtn').addEventListener('click', addTask);
+document.getElementById('titleInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') addTask(); });
+function addTask(){
+  const titleInput = document.getElementById('titleInput');
+  const whenInput = document.getElementById('whenInput');
+  const prioInput = document.getElementById('prioInput');
+  const nameInput = document.getElementById('nameInput');
+  const phoneInput = document.getElementById('phoneInput');
+  const reasonInput = document.getElementById('reasonInput');
+  const siteInput = document.getElementById('siteInput');
+  const title = titleInput.value.trim(); if (!title) return;
+  const when = whenInput.value ? new Date(whenInput.value).toISOString() : null;
+  if (editingTaskId) {
+    const t = tasks.find(x => x.id === editingTaskId);
+    if (t) {
+      const whenChanged = t.when !== when;
+      t.title = title; t.when = when; t.priority = prioInput.value;
+      t.contactName = nameInput.value.trim(); t.phone = phoneInput.value.trim();
+      t.reason = reasonInput.value.trim(); t.site = siteInput.value.trim();
+      if (whenChanged) t.notified = false;
+    }
+  } else {
+    tasks.push({
+      id: uid(), title, when,
+      priority: prioInput.value, contactName: nameInput.value.trim(), phone: phoneInput.value.trim(),
+      reason: reasonInput.value.trim(), site: siteInput.value.trim(), done: false, created: Date.now(), notified: false
+    });
+  }
+  saveArr(STORE_KEY, tasks);
+  cancelTaskEdit();
+  render();
+}
+function initNotify(){
+  if (!('Notification' in window)) { notifyNote.textContent = 'Reminders show while this page is open.'; return; }
+  if (Notification.permission === 'granted') { notifyNote.textContent = 'Reminders will notify you while this page is open.'; }
+  else if (Notification.permission === 'denied') { notifyNote.textContent = 'Notifications blocked — overdue tasks still highlight here.'; }
+  else {
+    notifyNote.textContent = 'Tap to enable reminder notifications.'; notifyNote.style.cursor = 'pointer';
+    notifyNote.onclick = () => { Notification.requestPermission().then(initNotify); };
+  }
+}
+initNotify();
+setInterval(() => {
+  const now = new Date(); let changed = false;
+  tasks.forEach(t => {
+    if (t.when && !t.done && !t.notified && new Date(t.when) <= now) {
+      t.notified = true; changed = true;
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('Reminder', { body: t.title }); } catch(e) {}
+      }
+    }
+  });
+  if (changed) saveArr(STORE_KEY, tasks);
+  render();
+}, 30000);
+
+// ---------- HOT LIST ----------
+function renderHotlist(){
+  const el = document.getElementById('list-hotlist');
+  updateCount();
+  if (hotlist.length === 0) { el.innerHTML = `<div class="empty">No relatives added yet. Add name, number and reason below.</div>`; return; }
+  el.innerHTML = [...hotlist].reverse().map(c => `
+    <div class="task" data-id="${c.id}">
+      <div class="task-body">
+        <div class="card-title">${escapeHtml(c.name)}</div>
+        <div class="contact-line">${c.phone ? `<a href="tel:${encodeURIComponent(c.phone)}">${escapeHtml(c.phone)}</a>` : ''}</div>
+        ${c.reason ? `<div class="reason">${escapeHtml(c.reason)}</div>` : ''}
+      </div>
+      <div class="card-actions">
+        <button class="edit-btn" data-action="edit-hl" aria-label="Edit">✎</button>
+        <button class="del" data-action="delete-hl" aria-label="Delete">×</button>
+      </div>
+    </div>`).join('');
+}
+let editingHlId = null;
+function cancelHlEdit(){
+  editingHlId = null;
+  document.getElementById('hl-name').value=''; document.getElementById('hl-phone').value=''; document.getElementById('hl-reason').value='';
+  document.getElementById('hl-add').textContent = 'Add';
+  document.getElementById('hl-editing-banner').classList.remove('show');
+  document.getElementById('hl-cancel-edit').classList.remove('show');
+}
+document.getElementById('hl-cancel-edit').addEventListener('click', cancelHlEdit);
+document.getElementById('list-hotlist').addEventListener('click', (e) => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const id = e.target.closest('.task').dataset.id;
+  if (btn.dataset.action === 'delete-hl') {
+    hotlist = hotlist.filter(x => x.id !== id); saveArr(HL_KEY, hotlist);
+    if (editingHlId === id) cancelHlEdit();
+    renderHotlist();
+  }
+  if (btn.dataset.action === 'edit-hl') {
+    const c = hotlist.find(x => x.id === id); if (!c) return;
+    editingHlId = id;
+    document.getElementById('hl-name').value = c.name || '';
+    document.getElementById('hl-phone').value = c.phone || '';
+    document.getElementById('hl-reason').value = c.reason || '';
+    document.getElementById('hl-add').textContent = 'Save changes';
+    document.getElementById('hl-editing-banner').classList.add('show');
+    document.getElementById('hl-cancel-edit').classList.add('show');
+    document.getElementById('hl-name').scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('hl-name').focus();
+  }
+});
+document.getElementById('hl-add').addEventListener('click', () => {
+  const name = document.getElementById('hl-name').value.trim(); if (!name) return;
+  const phone = document.getElementById('hl-phone').value.trim();
+  const reason = document.getElementById('hl-reason').value.trim();
+  if (editingHlId) {
+    const c = hotlist.find(x => x.id === editingHlId);
+    if (c) { c.name = name; c.phone = phone; c.reason = reason; }
+  } else {
+    hotlist.push({ id: uid(), name, phone, reason, created: Date.now() });
+  }
+  saveArr(HL_KEY, hotlist);
+  cancelHlEdit();
+  renderHotlist();
+});
+
+// ---------- FRIEND CIRCLE ----------
+function renderFriends(){
+  const el = document.getElementById('list-friends');
+  updateCount();
+  if (friends.length === 0) { el.innerHTML = `<div class="empty">No friend circle contacts yet. Add name, number and reason below.</div>`; return; }
+  el.innerHTML = [...friends].reverse().map(c => `
+    <div class="task" data-id="${c.id}">
+      <div class="task-body">
+        <div class="card-title">${escapeHtml(c.name)}</div>
+        <div class="contact-line">${c.phone ? `<a href="tel:${encodeURIComponent(c.phone)}">${escapeHtml(c.phone)}</a>` : ''}</div>
+        ${c.reason ? `<div class="reason">${escapeHtml(c.reason)}</div>` : ''}
+      </div>
+      <div class="card-actions">
+        <button class="edit-btn" data-action="edit-fr" aria-label="Edit">✎</button>
+        <button class="del" data-action="delete-fr" aria-label="Delete">×</button>
+      </div>
+    </div>`).join('');
+}
+let editingFrId = null;
+function cancelFrEdit(){
+  editingFrId = null;
+  document.getElementById('fr-name').value=''; document.getElementById('fr-phone').value=''; document.getElementById('fr-reason').value='';
+  document.getElementById('fr-add').textContent = 'Add';
+  document.getElementById('fr-editing-banner').classList.remove('show');
+  document.getElementById('fr-cancel-edit').classList.remove('show');
+}
+document.getElementById('fr-cancel-edit').addEventListener('click', cancelFrEdit);
+document.getElementById('list-friends').addEventListener('click', (e) => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const id = e.target.closest('.task').dataset.id;
+  if (btn.dataset.action === 'delete-fr') {
+    friends = friends.filter(x => x.id !== id); saveArr(FR_KEY, friends);
+    if (editingFrId === id) cancelFrEdit();
+    renderFriends();
+  }
+  if (btn.dataset.action === 'edit-fr') {
+    const c = friends.find(x => x.id === id); if (!c) return;
+    editingFrId = id;
+    document.getElementById('fr-name').value = c.name || '';
+    document.getElementById('fr-phone').value = c.phone || '';
+    document.getElementById('fr-reason').value = c.reason || '';
+    document.getElementById('fr-add').textContent = 'Save changes';
+    document.getElementById('fr-editing-banner').classList.add('show');
+    document.getElementById('fr-cancel-edit').classList.add('show');
+    document.getElementById('fr-name').scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('fr-name').focus();
+  }
+});
+document.getElementById('fr-add').addEventListener('click', () => {
+  const name = document.getElementById('fr-name').value.trim(); if (!name) return;
+  const phone = document.getElementById('fr-phone').value.trim();
+  const reason = document.getElementById('fr-reason').value.trim();
+  if (editingFrId) {
+    const c = friends.find(x => x.id === editingFrId);
+    if (c) { c.name = name; c.phone = phone; c.reason = reason; }
+  } else {
+    friends.push({ id: uid(), name, phone, reason, created: Date.now() });
+  }
+  saveArr(FR_KEY, friends);
+  cancelFrEdit();
+  renderFriends();
+});
+
+// ---------- SITE VISITS ----------
+function renderSiteVisits(){
+  const el = document.getElementById('list-sitevisits');
+  updateCount();
+  if (sitevisits.length === 0) { el.innerHTML = `<div class="empty">No site visits logged yet. Add one below.</div>`; return; }
+  el.innerHTML = [...sitevisits].reverse().map(v => {
+    const visitorLines = v.visitors.filter(x => x.name || x.phone).map(x =>
+      `<div class="visitor-line"><span>${escapeHtml(x.name)}</span>${x.phone ? `<a href="tel:${encodeURIComponent(x.phone)}">${escapeHtml(x.phone)}</a>` : ''}</div>`
+    ).join('');
+    const decisionPill = v.decision === 'interested' ? '<span class="pill interested">Interested</span>'
+      : v.decision === 'not-interested' ? '<span class="pill not-interested">Not interested</span>'
+      : '<span class="pill">Pending</span>';
+    return `
+    <div class="task" data-id="${v.id}">
+      <div class="task-body">
+        <div class="site-name">${escapeHtml(v.site)}</div>
+        ${visitorLines}
+        ${v.token ? `<div class="reason">Token / payment: ${escapeHtml(v.token)}</div>` : ''}
+        ${v.reason ? `<div class="reason">${escapeHtml(v.reason)}</div>` : ''}
+        <div class="meta">${decisionPill}</div>
+      </div>
+      <div class="card-actions">
+        <button class="edit-btn" data-action="edit-sv" aria-label="Edit">✎</button>
+        <button class="del" data-action="delete-sv" aria-label="Delete">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+let editingSvId = null;
+function cancelSvEdit(){
+  editingSvId = null;
+  document.getElementById('sv-site').value='';
+  [1,2,3,4].forEach(n => { document.getElementById('sv-name'+n).value=''; document.getElementById('sv-phone'+n).value=''; });
+  document.getElementById('sv-token').value=''; document.getElementById('sv-decision').value='undecided'; document.getElementById('sv-reason').value='';
+  document.getElementById('sv-add').textContent = 'Add';
+  document.getElementById('sv-editing-banner').classList.remove('show');
+  document.getElementById('sv-cancel-edit').classList.remove('show');
+}
+document.getElementById('sv-cancel-edit').addEventListener('click', cancelSvEdit);
+document.getElementById('list-sitevisits').addEventListener('click', (e) => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  const id = e.target.closest('.task').dataset.id;
+  if (btn.dataset.action === 'delete-sv') {
+    sitevisits = sitevisits.filter(x => x.id !== id); saveArr(SV_KEY, sitevisits);
+    if (editingSvId === id) cancelSvEdit();
+    renderSiteVisits();
+  }
+  if (btn.dataset.action === 'edit-sv') {
+    const v = sitevisits.find(x => x.id === id); if (!v) return;
+    editingSvId = id;
+    document.getElementById('sv-site').value = v.site || '';
+    [1,2,3,4].forEach(n => {
+      const visitor = v.visitors[n-1] || {};
+      document.getElementById('sv-name'+n).value = visitor.name || '';
+      document.getElementById('sv-phone'+n).value = visitor.phone || '';
+    });
+    document.getElementById('sv-token').value = v.token || '';
+    document.getElementById('sv-decision').value = v.decision || 'undecided';
+    document.getElementById('sv-reason').value = v.reason || '';
+    document.getElementById('sv-add').textContent = 'Save changes';
+    document.getElementById('sv-editing-banner').classList.add('show');
+    document.getElementById('sv-cancel-edit').classList.add('show');
+    document.getElementById('sv-site').scrollIntoView({ behavior:'smooth', block:'center' });
+    document.getElementById('sv-site').focus();
+  }
+});
+document.getElementById('sv-add').addEventListener('click', () => {
+  const site = document.getElementById('sv-site').value.trim(); if (!site) return;
+  const visitors = [1,2,3,4].map(n => ({
+    name: document.getElementById('sv-name'+n).value.trim(),
+    phone: document.getElementById('sv-phone'+n).value.trim()
+  }));
+  const token = document.getElementById('sv-token').value.trim();
+  const decision = document.getElementById('sv-decision').value;
+  const reason = document.getElementById('sv-reason').value.trim();
+  if (editingSvId) {
+    const v = sitevisits.find(x => x.id === editingSvId);
+    if (v) { v.site = site; v.visitors = visitors; v.token = token; v.decision = decision; v.reason = reason; }
+  } else {
+    sitevisits.push({ id: uid(), site, visitors, token, decision, reason, created: Date.now() });
+  }
+  saveArr(SV_KEY, sitevisits);
+  cancelSvEdit();
+  renderSiteVisits();
+});
+
+// ---------- Install button ----------
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; return; }
+  const ua = navigator.userAgent;
+  const isIOS = /iphone|ipad|ipod/i.test(ua);
+  const isSafari = isIOS || (/safari/i.test(ua) && !/chrome|crios|fxios/i.test(ua));
+  let msg;
+  if (isIOS && isSafari) { msg = 'Tap the Share icon (square with an arrow) at the bottom of Safari, then choose "Add to Home Screen".'; }
+  else if (isIOS) { msg = 'Open this page in Safari, tap Share, then "Add to Home Screen" — Chrome on iOS can\'t install apps directly.'; }
+  else { msg = 'Open your browser menu (⋮ or Share) and choose "Add to Home Screen" or "Install app".'; }
+  alert(msg);
+});
+
+render(); renderHotlist(); renderFriends(); renderSiteVisits();
+</script>
+</body>
+</html>
